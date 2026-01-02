@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Web QR Scanner</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    background: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+header {
+    background: #1e1e1e;
+    color: #fff;
+    padding: 15px;
+    text-align: center;
+    font-size: 20px;
+}
+#reader {
+    width: 100%;
+    max-width: 400px;
+    margin: 20px auto;
+}
+.details {
+    background: #fff;
+    margin: 20px;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+.details p {
+    margin: 8px 0;
+    font-size: 16px;
+}
+.label {
+    font-weight: bold;
+}
+.success {
+    color: green;
+}
+.error {
+    color: red;
+}
+</style>
+</head>
+
+<body>
+
+<header>Ticket Scanner</header>
+
+<div id="reader"></div>
+
+<div class="details" id="result" style="display:none;">
+    <p><span class="label">Ticket ID:</span> <span id="ticket"></span></p>
+    <p><span class="label">Name:</span> <span id="name"></span></p>
+    <p><span class="label">Mobile:</span> <span id="mobile"></span></p>
+    <p><span class="label">Total Pax:</span> <span id="pax"></span></p>
+</div>
+
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbx0hn9IOBYQ1qGyVbDz-nY8PB4BjS99jkGNWJxx0DCbAKGX7uneJ64AkBSe9F50DuvrZw/exec"; // Your Apps Script Web App URL
+
+const qrScanner = new Html5Qrcode("reader");
+
+qrScanner.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: 250 },
+    qrText => {
+        qrScanner.stop(); // stop scanning while processing
+
+        console.log("Scanned QR:", qrText); // debug
+
+        // Send scanned QR text directly to Apps Script API
+        fetch(API_URL, {
+            method: "POST",
+            body: JSON.stringify({ qr: qrText })
+        })
+        .then(res => res.json())
+        .then(result => {
+            if (result.status === "success" || result.status === "duplicate") {
+                // Extract ticket from QR
+                const ticketId = qrText.split("|")[0].replace("Ticket:", "");
+
+                document.getElementById("ticket").innerText = ticketId;
+                document.getElementById("name").innerText = result.name;
+                document.getElementById("mobile").innerText = result.mobile;
+                document.getElementById("pax").innerText = result.pax;
+                document.getElementById("result").style.display = "block";
+
+                if(result.status === "success"){
+                    alert("✅ Check-in successful");
+                } else {
+                    alert("❌ Duplicate Entry! Already Checked-in");
+                }
+
+            } else {
+                alert("⚠️ Ticket Not Found or Invalid QR");
+            }
+
+            // Restart scanner for next scan
+            qrScanner.start(
+                { facingMode: "environment" },
+                { fps: 10, qrbox: 250 },
+                qrScannerCallback,
+                qrScannerErrorCallback
+            );
+        })
+        .catch(err => {
+            alert("❌ Error connecting to server");
+            console.error(err);
+        });
+
+    },
+    error => {
+        console.warn("QR Scan Error:", error);
+    }
+);
+
+// Optional callbacks for restarting scanner
+function qrScannerCallback(qrText) { }
+function qrScannerErrorCallback(error) { }
+</script>
+
+</body>
+</html>
